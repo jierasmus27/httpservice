@@ -1,5 +1,7 @@
 import { Component, OnInit } from '@angular/core';
-import { Http } from '@angular/http';
+import { PostService } from '../services/post.service';
+import { NotFoundError } from '../common/not-found-error';
+import { AppError } from '../common/app-error';
 
 @Component({
   selector: 'posts',
@@ -7,44 +9,54 @@ import { Http } from '@angular/http';
   styleUrls: ['./posts.component.css']
 })
 export class PostsComponent implements OnInit {
-  private url = 'http://jsonplaceholder.typicode.com/posts';
   posts: any[];
 
-  constructor(private http: Http) {
+  constructor(private service: PostService) {
   }
 
   createPost(input: HTMLInputElement) {
     let post = { title: input.value };
+    this.posts.splice(0, 0, post);
     input.value = "";
 
-    this.http.post(this.url, JSON.stringify(post))
-      .subscribe(response => {
-        post['id'] = response.json().id;
+    this.service.create(post)
+      .subscribe(newPost => {
+        post['id'] = newPost.id;
 
-        this.posts.splice(0, 0, post);
+      },
+      (error: AppError) => {
+        this.posts.splice(0, 1);
+
+        if (error instanceof NotFoundError) {}
+          // this.form.setErrors(error.originalError);
+        else throw error;
       }
     );
   }
 
   updatePost(post) {
-    this.http.patch(this.url + "/" + post.id, JSON.stringify({isRead: true}))
-      .subscribe(response => {
-        console.log(response.json());
+    this.service.update(post)
+      .subscribe(updatedPost => {
+        console.log(updatedPost);
       });
   }
 
   deletePost(post) {
-    this.http.delete(this.url + "/" + post.id)
-      .subscribe(response => {
+    this.service.delete(post.id)
+      .subscribe(() => {
         let index = this.posts.indexOf(post);
         this.posts.splice(index, 1);
+      },
+      (error: AppError) => {
+        if (error instanceof NotFoundError)
+          alert('This post has already been deleted');
+        else throw error;
       });
   }
 
   ngOnInit() {
-    this.http.get(this.url).subscribe(response => {
-      this.posts = response.json();
-    });
+    this.service.getAll()
+      .subscribe(posts => this.posts = posts);
   }
 
 }
